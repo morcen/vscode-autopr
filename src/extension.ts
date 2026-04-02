@@ -25,6 +25,7 @@ interface GitExtension {
 
 interface GitAPI {
   readonly repositories: GitRepository[];
+  readonly onDidOpenRepository: vscode.Event<GitRepository>;
 }
 
 interface GitRepository {
@@ -49,18 +50,24 @@ function watchBranch(context: vscode.ExtensionContext) {
   }
 
   const git = gitExtension.exports.getAPI(1);
-  if (!git.repositories.length) {
-    return;
+
+  function attachToRepo(repo: GitRepository) {
+    setBranchContext(repo.state.HEAD?.name);
+    const listener = repo.onDidChangeState(() => {
+      setBranchContext(repo.state.HEAD?.name);
+    });
+    context.subscriptions.push(listener);
   }
 
-  const repo = git.repositories[0];
-  setBranchContext(repo.state.HEAD?.name);
-
-  const listener = repo.onDidChangeState(() => {
-    setBranchContext(repo.state.HEAD?.name);
-  });
-
-  context.subscriptions.push(listener);
+  if (git.repositories.length) {
+    attachToRepo(git.repositories[0]);
+  } else {
+    const openListener = git.onDidOpenRepository((repo) => {
+      attachToRepo(repo);
+      openListener.dispose();
+    });
+    context.subscriptions.push(openListener);
+  }
 }
 
 export async function activate(context: vscode.ExtensionContext) {
