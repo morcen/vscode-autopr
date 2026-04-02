@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { readFile } from "fs/promises";
+import { join } from "path";
 
 const execFileAsync = promisify(execFile);
 
@@ -57,6 +59,22 @@ export async function getBaseBranch(cwd: string): Promise<string> {
   } catch {
     return "main";
   }
+}
+
+export async function readPRTemplate(cwd: string): Promise<string | null> {
+  const candidates = [
+    join(cwd, ".github", "pull_request_template.md"),
+    join(cwd, ".github", "PULL_REQUEST_TEMPLATE.md"),
+  ];
+  for (const filePath of candidates) {
+    try {
+      const content = await readFile(filePath, "utf8");
+      return content.trim() || null;
+    } catch {
+      // not found — try next
+    }
+  }
+  return null;
 }
 
 export async function getBranchDiff(
@@ -122,7 +140,8 @@ export async function createPR(
   branch: string,
   baseBranch: string,
   title: string,
-  body: string
+  body: string,
+  draft: boolean
 ): Promise<string> {
   const response = await fetch(
     `https://api.github.com/repos/${owner}/${repo}/pulls`,
@@ -133,7 +152,7 @@ export async function createPR(
         Accept: "application/vnd.github+json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ title, body, head: branch, base: baseBranch }),
+      body: JSON.stringify({ title, body, head: branch, base: baseBranch, draft }),
     }
   );
 

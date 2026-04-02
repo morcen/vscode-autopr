@@ -1,12 +1,28 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-const SYSTEM_PROMPT = `You are an expert at writing clear, informative GitHub pull request descriptions.
+function buildSystemPrompt(hasTemplate: boolean): string {
+  const base = `You are an expert at writing clear, informative GitHub pull request descriptions.
 Output ONLY a JSON object with two fields: "title" and "body".
-- title: a concise PR title (max 72 chars), following Conventional Commits when appropriate
-- body: a markdown PR description with a brief summary of what changed and why
+- title: a concise PR title (max 72 chars), following Conventional Commits when appropriate`;
+
+  if (hasTemplate) {
+    return (
+      base +
+      `\n- body: fill in the provided PR template with the relevant information. Preserve all section headings from the template.
 
 Example output:
-{"title":"feat: add user authentication","body":"## Summary\\n- Added JWT-based login and registration endpoints\\n- Passwords are hashed with bcrypt\\n\\n## Changes\\n- ..."}`;
+{"title":"feat: add user authentication","body":"## Summary\\n- Added JWT-based login and registration endpoints\\n\\n## Changes\\n- ..."}`
+    );
+  }
+
+  return (
+    base +
+    `\n- body: a markdown PR description with a brief summary of what changed and why
+
+Example output:
+{"title":"feat: add user authentication","body":"## Summary\\n- Added JWT-based login and registration endpoints\\n- Passwords are hashed with bcrypt\\n\\n## Changes\\n- ..."}`
+  );
+}
 
 export async function generatePRContent(
   apiKey: string,
@@ -14,7 +30,8 @@ export async function generatePRContent(
   branch: string,
   baseBranch: string,
   commits: string,
-  diff: string
+  diff: string,
+  template: string | null
 ): Promise<{ title: string; body: string }> {
   const client = new Anthropic({ apiKey });
 
@@ -28,7 +45,7 @@ export async function generatePRContent(
   const stream = client.messages.stream({
     model,
     max_tokens: 1024,
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(template !== null),
     messages: [
       {
         role: "user",
@@ -40,7 +57,7 @@ ${commits}
 Diff:
 \`\`\`diff
 ${truncatedDiff}
-\`\`\``,
+\`\`\`${template ? `\n\nPR Template to fill in:\n${template}` : ""}`,
       },
     ],
   });

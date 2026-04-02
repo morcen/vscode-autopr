@@ -7,10 +7,11 @@ interface GitExtension {
 }
 
 interface GitAPI {
-  readonly repositories: Repository[];
+  readonly repositories: GitRepository[];
+  getRepository(uri: vscode.Uri): GitRepository | null;
 }
 
-interface Repository {
+interface GitRepository {
   readonly inputBox: InputBox;
 }
 
@@ -18,7 +19,10 @@ interface InputBox {
   value: string;
 }
 
-export function setScmInputBoxValue(message: string): boolean {
+export function setScmInputBoxValue(
+  message: string,
+  uri?: vscode.Uri
+): boolean {
   const gitExtension =
     vscode.extensions.getExtension<GitExtension>("vscode.git");
 
@@ -32,6 +36,14 @@ export function setScmInputBoxValue(message: string): boolean {
     return false;
   }
 
-  git.repositories[0].inputBox.value = message;
+  const repo = uri
+    ? git.getRepository(uri) ?? git.repositories[0]
+    : git.repositories[0];
+
+  if (!repo) {
+    return false;
+  }
+
+  repo.inputBox.value = message;
   return true;
 }
