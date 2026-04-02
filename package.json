@@ -2,7 +2,7 @@
   "name": "vscode-autopr",
   "displayName": "AutoPR",
   "description": "Generate commit messages using Claude AI",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "repository": "https://github.com/morcen/vscode-autopr",
   "publisher": "morcen",
   "engines": {
@@ -18,6 +18,12 @@
         "title": "AutoPR: Generate Commit Message",
         "icon": "$(hubot)",
         "shortTitle": "Generate Commit"
+      },
+      {
+        "command": "autopr.createPullRequest",
+        "title": "AutoPR: Create Pull Request",
+        "icon": "$(git-pull-request)",
+        "shortTitle": "Create PR"
       }
     ],
     "menus": {
@@ -30,6 +36,11 @@
         {
           "command": "autopr.generateCommitMessage",
           "group": "navigation"
+        },
+        {
+          "command": "autopr.createPullRequest",
+          "group": "navigation",
+          "when": "autopr.isNotMainBranch"
         }
       ]
     },
