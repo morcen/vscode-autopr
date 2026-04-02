@@ -18,7 +18,7 @@ A VS Code extension that uses Claude AI to automatically generate commit message
 ## Usage
 
 1. Stage the files you want to commit (via `git add` or the VS Code Source Control panel)
-2. Click the **sparkle button (✨)** in the commit message input box, or open the Command Palette (`Cmd+Shift+P`) and run **AutoPR: Generate Commit Message**
+2. Click the **robot button** in the commit message input box, or open the Command Palette (`Cmd+Shift+P`) and run **AutoPR: Generate Commit Message**
 3. On first run, you will be prompted for your Anthropic API key — it is stored securely and never asked again
 4. The commit message is written directly into the input box — review it and commit when ready
 
