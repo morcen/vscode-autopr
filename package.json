@@ -1,9 +1,10 @@
 {
   "name": "vscode-autopr",
-  "displayName": "AutoPR",
+  "displayName": "VSCode AutoPR",
   "description": "Generate commit messages using Claude AI",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "repository": "https://github.com/morcen/vscode-autopr",
+  "icon": "logo.png",
   "publisher": "morcen",
   "engines": {
     "vscode": "^1.94.0"
@@ -27,20 +28,10 @@
       }
     ],
     "menus": {
-      "scm/inputBox": [
-        {
-          "command": "autopr.generateCommitMessage"
-        }
-      ],
       "scm/title": [
         {
           "command": "autopr.generateCommitMessage",
           "group": "navigation"
-        },
-        {
-          "command": "autopr.createPullRequest",
-          "group": "navigation",
-          "when": "autopr.isNotMainBranch"
         }
       ]
     },
@@ -53,7 +44,15 @@
           "description": "Claude model to use for generating commit messages"
         }
       }
-    }
+    },
+    "keybindings": [
+      {
+        "command": "autopr.generateCommitMessage",
+        "key": "ctrl+shift+g c",
+        "mac": "cmd+shift+g c",
+        "when": "scmFocus || editorFocus"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "node esbuild.js --production",
