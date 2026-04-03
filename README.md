@@ -42,8 +42,9 @@ cd vscode-autopr
 npm install
 npm run build
 npx vsce package
-code --install-extension vscode-autopr-0.1.0.vsix
+code --install-extension vscode-autopr-x.x.x.vsix
 ```
+(replace x.x.x with the correct version)
 
 ### Updating
 
@@ -53,8 +54,9 @@ Pull the latest changes, rebuild, and reinstall:
 git pull
 npm run build
 npx vsce package
-code --install-extension vscode-autopr-0.1.0.vsix
+code --install-extension vscode-autopr-x.x.x.vsix
 ```
+(replace x.x.x with the correct version)
 
 VS Code will prompt you to reload — the new version takes over immediately.
 
