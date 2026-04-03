@@ -1,3 +1,5 @@
+[![CI](https://github.com/morcen/vscode-autopr/actions/workflows/ci.yml/badge.svg)](https://github.com/morcen/vscode-autopr/actions/workflows/ci.yml)
+
 # AutoPR
 
 A VS Code extension that uses Claude AI to automatically generate commit messages from your staged changes.
@@ -55,6 +57,18 @@ code --install-extension vscode-autopr-0.1.0.vsix
 ```
 
 VS Code will prompt you to reload — the new version takes over immediately.
+
+## Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. Fork the repository and clone it locally
+2. Install dependencies: `npm install`
+3. Open the project in VS Code and press `F5` to launch the Extension Development Host
+4. Make your changes, then run `npm test` to verify nothing is broken
+5. Submit a pull request with a clear description of what you changed and why
+
+Please follow the existing code style and keep pull requests focused on a single change.
 
 ## License
 
