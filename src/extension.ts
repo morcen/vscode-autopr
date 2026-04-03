@@ -86,6 +86,30 @@ function watchBranch(
   context.subscriptions.push(openListener);
 }
 
+async function openEditableDocument(
+  content: string,
+  language: string,
+  notification: string
+): Promise<string | undefined> {
+  const doc = await vscode.workspace.openTextDocument({ content, language });
+  await vscode.window.showTextDocument(doc, { preview: false });
+
+  const choice = await vscode.window.showInformationMessage(
+    notification,
+    "Use This",
+    "Cancel"
+  );
+
+  const text = choice === "Use This" ? doc.getText() : undefined;
+
+  // Revert to clean state then close — avoids "Do you want to save?" prompt
+  await vscode.window.showTextDocument(doc);
+  await vscode.commands.executeCommand("workbench.action.revertFile");
+  await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+
+  return text;
+}
+
 export async function activate(context: vscode.ExtensionContext) {
   const prStatusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
@@ -150,7 +174,8 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      await vscode.window.withProgress(
+      // Generate commit message
+      const generated = await vscode.window.withProgress<string | undefined>(
         {
           location: vscode.ProgressLocation.Notification,
           title: "AutoPR: Generating commit message...",
@@ -162,31 +187,7 @@ export async function activate(context: vscode.ExtensionContext) {
               vscode.workspace
                 .getConfiguration("autopr")
                 .get<string>("model") ?? "claude-opus-4-6";
-
-            const message = await generateCommitMessage(apiKey!, diff, model);
-
-            const confirmed = await vscode.window.showInputBox({
-              value: message,
-              prompt: "Edit commit message or press Enter to accept",
-              ignoreFocusOut: true,
-            });
-
-            if (confirmed === undefined) {
-              vscode.window.showInformationMessage("AutoPR: Cancelled.");
-              return;
-            }
-
-            const set = setScmInputBoxValue(confirmed, activeUri);
-            if (!set) {
-              await vscode.env.clipboard.writeText(confirmed);
-              vscode.window.showInformationMessage(
-                "AutoPR: Commit message copied to clipboard (SCM input not found)."
-              );
-            } else {
-              vscode.window.showInformationMessage(
-                "AutoPR: Commit message generated."
-              );
-            }
+            return await generateCommitMessage(apiKey!, diff, model);
           } catch (err: unknown) {
             if (err instanceof Error && err.message.includes("401")) {
               await context.secrets.delete(SECRET_KEY);
@@ -196,9 +197,26 @@ export async function activate(context: vscode.ExtensionContext) {
             } else {
               vscode.window.showErrorMessage(`AutoPR: ${err}`);
             }
+            return undefined;
           }
         }
       );
+
+      if (!generated) {
+        return;
+      }
+
+      const set = setScmInputBoxValue(generated.trim(), activeUri);
+      if (!set) {
+        await vscode.env.clipboard.writeText(generated.trim());
+        vscode.window.showInformationMessage(
+          "AutoPR: Commit message copied to clipboard (SCM input not found)."
+        );
+      } else {
+        vscode.window.showInformationMessage(
+          "AutoPR: Commit message generated."
+        );
+      }
     }
   );
 
@@ -308,11 +326,13 @@ export async function activate(context: vscode.ExtensionContext) {
       }
       const draft = prType === "Draft";
 
-      // --- Phase 2: AI generation and PR creation ---
-      await vscode.window.withProgress(
+      // --- Phase 2: AI generation ---
+      const generated = await vscode.window.withProgress<
+        { title: string; body: string } | undefined
+      >(
         {
           location: vscode.ProgressLocation.Notification,
-          title: "AutoPR: Creating pull request...",
+          title: "AutoPR: Generating pull request...",
           cancellable: false,
         },
         async () => {
@@ -331,60 +351,18 @@ export async function activate(context: vscode.ExtensionContext) {
               vscode.window.showWarningMessage(
                 `AutoPR: No commits found between "${branch}" and "${baseBranch}".`
               );
-              return;
+              return undefined;
             }
 
-            const { title: generatedTitle, body: generatedBody } =
-              await generatePRContent(
-                apiKey!,
-                model,
-                branch,
-                baseBranch,
-                commits,
-                diff,
-                template
-              );
-
-            // Preview: title
-            const finalTitle = await vscode.window.showInputBox({
-              value: generatedTitle,
-              prompt: "Edit PR title or press Enter to accept",
-              ignoreFocusOut: true,
-            });
-            if (finalTitle === undefined) {
-              vscode.window.showInformationMessage("AutoPR: Cancelled.");
-              return;
-            }
-
-            // Preview: body
-            const finalBody = await vscode.window.showInputBox({
-              value: generatedBody,
-              prompt: "Edit PR description or press Enter to accept",
-              ignoreFocusOut: true,
-            });
-            if (finalBody === undefined) {
-              vscode.window.showInformationMessage("AutoPR: Cancelled.");
-              return;
-            }
-
-            const prUrl = await createPR(
-              token,
-              remote.owner,
-              remote.repo,
+            return await generatePRContent(
+              apiKey!,
+              model,
               branch,
               baseBranch,
-              finalTitle,
-              finalBody,
-              draft
+              commits,
+              diff,
+              template
             );
-
-            const open = await vscode.window.showInformationMessage(
-              "AutoPR: Pull request created!",
-              "Open PR"
-            );
-            if (open) {
-              vscode.env.openExternal(vscode.Uri.parse(prUrl));
-            }
           } catch (err: unknown) {
             if (err instanceof Error && err.message.includes("401")) {
               await context.secrets.delete(SECRET_KEY);
@@ -394,9 +372,60 @@ export async function activate(context: vscode.ExtensionContext) {
             } else {
               vscode.window.showErrorMessage(`AutoPR: ${err}`);
             }
+            return undefined;
           }
         }
       );
+
+      if (!generated) {
+        return;
+      }
+
+      // Open editor for review — title on first line, blank line, then body
+      const prDoc = `${generated.title}\n\n${generated.body}`;
+      const edited = await openEditableDocument(
+        prDoc,
+        "markdown",
+        'First line is the PR title. Edit below, then click "Use This".'
+      );
+
+      if (edited === undefined) {
+        vscode.window.showInformationMessage("AutoPR: Cancelled.");
+        return;
+      }
+
+      // Parse title (first line) and body (everything after first blank line)
+      const lines = edited.split("\n");
+      const finalTitle = lines[0].trim();
+      const bodyStartIndex = lines.findIndex((l, i) => i > 0 && l.trim() !== "");
+      const finalBody =
+        bodyStartIndex >= 0
+          ? lines.slice(bodyStartIndex).join("\n").trim()
+          : "";
+
+      // --- Phase 3: create PR ---
+      try {
+        const prUrl = await createPR(
+          token,
+          remote.owner,
+          remote.repo,
+          branch,
+          baseBranch,
+          finalTitle,
+          finalBody,
+          draft
+        );
+
+        const open = await vscode.window.showInformationMessage(
+          "AutoPR: Pull request created!",
+          "Open PR"
+        );
+        if (open) {
+          vscode.env.openExternal(vscode.Uri.parse(prUrl));
+        }
+      } catch (err: unknown) {
+        vscode.window.showErrorMessage(`AutoPR: ${err}`);
+      }
     }
   );
 
