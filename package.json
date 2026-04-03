@@ -2,7 +2,7 @@
   "name": "vscode-autopr",
   "displayName": "VSCode AutoPR",
   "description": "Generate commit messages using Claude AI",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "repository": "https://github.com/morcen/vscode-autopr",
   "icon": "logo.png",
   "publisher": "morcen",
