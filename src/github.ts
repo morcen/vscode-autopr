@@ -99,20 +99,26 @@ export async function getBranchDiff(
   };
 }
 
-export async function isBranchPushed(
+export async function getPushStatus(
   cwd: string,
   branch: string
-): Promise<boolean> {
+): Promise<{ onRemote: boolean; unpushedCount: number }> {
   try {
-    await execFileAsync(
-      "git",
-      ["rev-parse", "--verify", `origin/${branch}`],
-      { cwd }
-    );
-    return true;
+    await execFileAsync("git", ["rev-parse", "--verify", `origin/${branch}`], { cwd });
   } catch {
-    return false;
+    return { onRemote: false, unpushedCount: 0 };
   }
+  const { stdout } = await execFileAsync(
+    "git",
+    ["rev-list", "--count", `origin/${branch}..HEAD`],
+    { cwd }
+  );
+  return { onRemote: true, unpushedCount: parseInt(stdout.trim(), 10) };
+}
+
+export async function hasUncommittedChanges(cwd: string): Promise<boolean> {
+  const { stdout } = await execFileAsync("git", ["status", "--porcelain"], { cwd });
+  return stdout.trim().length > 0;
 }
 
 export async function pushBranch(cwd: string, branch: string): Promise<void> {

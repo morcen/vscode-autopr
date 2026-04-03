@@ -8,7 +8,8 @@ import {
   getCurrentBranch,
   getBaseBranch,
   getBranchDiff,
-  isBranchPushed,
+  getPushStatus,
+  hasUncommittedChanges,
   pushBranch,
   getExistingPR,
   createPR,
@@ -278,12 +279,33 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
       }
 
-      // Push if not already pushed
+      // Check uncommitted changes and push status
       try {
-        const pushed = await isBranchPushed(workspaceRoot, branch);
-        if (!pushed) {
+        const [pushStatus, uncommitted] = await Promise.all([
+          getPushStatus(workspaceRoot, branch),
+          hasUncommittedChanges(workspaceRoot),
+        ]);
+
+        if (uncommitted) {
+          vscode.window.showWarningMessage(
+            "AutoPR: You have uncommitted changes. These won't be included in the PR."
+          );
+        }
+
+        if (!pushStatus.onRemote) {
           const confirm = await vscode.window.showInformationMessage(
-            `AutoPR: Branch "${branch}" hasn't been pushed. Push it now?`,
+            `AutoPR: Branch "${branch}" hasn't been pushed to GitHub. Push now?`,
+            "Push",
+            "Cancel"
+          );
+          if (confirm !== "Push") {
+            return;
+          }
+          await pushBranch(workspaceRoot, branch);
+        } else if (pushStatus.unpushedCount > 0) {
+          const count = pushStatus.unpushedCount;
+          const confirm = await vscode.window.showInformationMessage(
+            `AutoPR: You have ${count} unpushed commit${count > 1 ? "s" : ""} on "${branch}". Push now?`,
             "Push",
             "Cancel"
           );
