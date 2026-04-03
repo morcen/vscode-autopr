@@ -100,14 +100,7 @@ async function openEditableDocument(
     "Cancel"
   );
 
-  const text = choice === "Use This" ? doc.getText() : undefined;
-
-  // Revert to clean state then close — avoids "Do you want to save?" prompt
-  await vscode.window.showTextDocument(doc);
-  await vscode.commands.executeCommand("workbench.action.revertFile");
-  await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
-
-  return text;
+  return choice === "Use This" ? doc.getText() : undefined;
 }
 
 export async function activate(context: vscode.ExtensionContext) {
