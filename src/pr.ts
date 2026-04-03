@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-function buildSystemPrompt(hasTemplate: boolean): string {
+export function buildSystemPrompt(hasTemplate: boolean): string {
   const base = `You are an expert at writing clear, informative GitHub pull request descriptions.
 Output ONLY a JSON object with two fields: "title" and "body".
 - title: a concise PR title (max 72 chars), following Conventional Commits when appropriate`;
@@ -74,4 +74,13 @@ ${truncatedDiff}
   }
 
   return JSON.parse(jsonMatch[0]) as { title: string; body: string };
+}
+
+export function parsePRDocument(text: string): { title: string; body: string } {
+  const lines = text.split("\n");
+  const title = lines[0].trim();
+  const bodyStartIndex = lines.findIndex((l, i) => i > 0 && l.trim() !== "");
+  const body =
+    bodyStartIndex >= 0 ? lines.slice(bodyStartIndex).join("\n").trim() : "";
+  return { title, body };
 }

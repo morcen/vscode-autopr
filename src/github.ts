@@ -13,16 +13,7 @@ export async function getGitHubToken(): Promise<string> {
   return session.accessToken;
 }
 
-export async function getRemoteInfo(
-  cwd: string
-): Promise<{ owner: string; repo: string }> {
-  const { stdout } = await execFileAsync(
-    "git",
-    ["remote", "get-url", "origin"],
-    { cwd }
-  );
-  const url = stdout.trim();
-
+export function parseRemoteUrl(url: string): { owner: string; repo: string } {
   // HTTPS: https://github.com/owner/repo.git
   const httpsMatch = url.match(/github\.com[/:]([^/]+)\/([^/]+?)(?:\.git)?$/);
   if (httpsMatch) {
@@ -36,6 +27,17 @@ export async function getRemoteInfo(
   }
 
   throw new Error(`Could not parse GitHub remote URL: ${url}`);
+}
+
+export async function getRemoteInfo(
+  cwd: string
+): Promise<{ owner: string; repo: string }> {
+  const { stdout } = await execFileAsync(
+    "git",
+    ["remote", "get-url", "origin"],
+    { cwd }
+  );
+  return parseRemoteUrl(stdout.trim());
 }
 
 export async function getCurrentBranch(cwd: string): Promise<string> {
