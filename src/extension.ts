@@ -15,9 +15,10 @@ import {
   createPR,
   readPRTemplate,
 } from "./github";
-import { generatePRContent } from "./pr";
+import { generatePRContent, parsePRDocument } from "./pr";
 
 const SECRET_KEY = "autopr.anthropicApiKey";
+const GITHUB_TOKEN_KEY = "autopr.githubToken";
 const MAIN_BRANCHES = ["main", "master"];
 
 interface GitExtension {
@@ -85,6 +86,32 @@ function watchBranch(
     attachToRepo(repo);
   });
   context.subscriptions.push(openListener);
+}
+
+async function resolveGitHubToken(
+  context: vscode.ExtensionContext
+): Promise<string | undefined> {
+  try {
+    return await getGitHubToken();
+  } catch {
+    // OAuth unavailable — fall back to stored PAT
+  }
+
+  let pat = await context.secrets.get(GITHUB_TOKEN_KEY);
+  if (!pat) {
+    pat = await vscode.window.showInputBox({
+      prompt:
+        "GitHub OAuth unavailable. Enter a Personal Access Token (repo scope required)",
+      password: true,
+      ignoreFocusOut: true,
+      placeHolder: "ghp_...",
+    });
+    if (!pat) {
+      return undefined;
+    }
+    await context.secrets.store(GITHUB_TOKEN_KEY, pat);
+  }
+  return pat;
 }
 
 async function openEditableDocument(
@@ -244,17 +271,21 @@ export async function activate(context: vscode.ExtensionContext) {
         await context.secrets.store(SECRET_KEY, apiKey);
       }
 
+      // Resolve GitHub token — OAuth with PAT fallback
+      const token = await resolveGitHubToken(context);
+      if (!token) {
+        return;
+      }
+
       let branch: string;
       let detectedBase: string;
       let remote: { owner: string; repo: string };
-      let token: string;
 
       try {
-        [branch, detectedBase, remote, token] = await Promise.all([
+        [branch, detectedBase, remote] = await Promise.all([
           getCurrentBranch(workspaceRoot),
           getBaseBranch(workspaceRoot),
           getRemoteInfo(workspaceRoot),
-          getGitHubToken(),
         ]);
       } catch (err) {
         vscode.window.showErrorMessage(`AutoPR: ${err}`);
@@ -410,13 +441,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       // Parse title (first line) and body (everything after first blank line)
-      const lines = edited.split("\n");
-      const finalTitle = lines[0].trim();
-      const bodyStartIndex = lines.findIndex((l, i) => i > 0 && l.trim() !== "");
-      const finalBody =
-        bodyStartIndex >= 0
-          ? lines.slice(bodyStartIndex).join("\n").trim()
-          : "";
+      const { title: finalTitle, body: finalBody } = parsePRDocument(edited);
 
       // --- Phase 3: create PR ---
       try {
