@@ -469,7 +469,17 @@ export async function activate(context: vscode.ExtensionContext) {
     }
   );
 
-  context.subscriptions.push(commitCommand, prCommand);
+  const resetKeyCommand = vscode.commands.registerCommand(
+    "autopr.resetApiKey",
+    async () => {
+      await context.secrets.delete(SECRET_KEY);
+      vscode.window.showInformationMessage(
+        "AutoPR: API key cleared. You'll be prompted for a new one on the next run."
+      );
+    }
+  );
+
+  context.subscriptions.push(commitCommand, prCommand, resetKeyCommand);
 }
 
 export function deactivate() {}
