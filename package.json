@@ -27,6 +27,10 @@
         "title": "AutoPR: Create Pull Request",
         "icon": "$(git-pull-request)",
         "shortTitle": "Create PR"
+      },
+      {
+        "command": "autopr.resetApiKey",
+        "title": "AutoPR: Reset API Key"
       }
     ],
     "menus": {
